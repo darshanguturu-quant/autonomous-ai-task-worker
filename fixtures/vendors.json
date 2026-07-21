@@ -1,0 +1,52 @@
+[
+  {
+    "vendor_id": "V-101",
+    "name": "Acme Office Supplies Ltd.",
+    "aliases": [
+      "Acme Office Supplies",
+      "ACME Office Supplies Ltd"
+    ],
+    "address": "218 Industrial Way, Cleveland, OH 44101",
+    "approved": true
+  },
+  {
+    "vendor_id": "V-102",
+    "name": "Meridian IT Services LLC",
+    "aliases": [
+      "Meridian IT Services",
+      "Meridian IT"
+    ],
+    "address": "77 Technology Blvd, Suite 400, Austin, TX 78701",
+    "approved": true
+  },
+  {
+    "vendor_id": "V-103",
+    "name": "Brightway Logistics Co.",
+    "aliases": [
+      "Brightway Logistics",
+      "Brightway"
+    ],
+    "address": "1520 Freight Terminal Rd, Chicago, IL 60638",
+    "approved": true
+  },
+  {
+    "vendor_id": "V-104",
+    "name": "Northstar Construction Supply Inc.",
+    "aliases": [
+      "Northstar Construction Supply",
+      "Northstar Const. Supply"
+    ],
+    "address": "902 Quarry Lane, Pittsburgh, PA 15201",
+    "approved": true
+  },
+  {
+    "vendor_id": "V-105",
+    "name": "Vertex Marketing Group",
+    "aliases": [
+      "Vertex Marketing",
+      "Vertex Mktg Group"
+    ],
+    "address": "350 Madison Ave, Floor 9, New York, NY 10017",
+    "approved": true
+  }
+]

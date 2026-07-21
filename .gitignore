@@ -1,0 +1,14 @@
+# Secrets - never commit
+.env
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Runtime data
+data/runs.db
+data/uploads/
+
+# Frontend
+ui/node_modules/

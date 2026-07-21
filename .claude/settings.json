@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write(./**)",
+      "Edit(./**)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(pip install --break-system-packages:*)",
+      "Bash(pytest:*)",
+      "Bash(npm:*)",
+      "Bash(node:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(git status)",
+      "Bash(git diff)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "PowerShell(cd \"c:\\\\Users\\\\sreej\\\\Downloads\\\\PS-1FIN\\\\ui\"; npx tsc --noEmit; \"TSC EXIT: $LASTEXITCODE\")",
+      "PowerShell($c = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { Stop-Process -Id $c[0].OwningProcess -Force -Confirm:$false; \"old server stopped\" } else { \"no server running\" })",
+      "PowerShell($r = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/; \"root: $\\($r.StatusCode\\)\"; \\($r.Content -match \"Invoice Processing Automation\"\\); $a = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/assets/index-CybxmZyZ.js -Method Head; \"js asset: $\\($a.StatusCode\\)\"; \\(Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/api/runs\\).StatusCode)"
+    ],
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(git push:*)",
+      "Bash(sudo:*)"
+    ],
+    "defaultMode": "acceptEdits"
+  }
+}

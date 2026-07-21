@@ -1,0 +1,52 @@
+[
+  {
+    "po_number": "PO-7841",
+    "vendor_id": "V-101",
+    "description": "Office consumables restock Q3",
+    "amount": 2500.0,
+    "currency": "USD",
+    "status": "open",
+    "tolerance_pct": 2.0,
+    "tolerance_abs": 50.0
+  },
+  {
+    "po_number": "PO-7852",
+    "vendor_id": "V-102",
+    "description": "Managed IT services - July 2026",
+    "amount": 9168.25,
+    "currency": "USD",
+    "status": "open",
+    "tolerance_pct": 2.0,
+    "tolerance_abs": 50.0
+  },
+  {
+    "po_number": "PO-7860",
+    "vendor_id": "V-103",
+    "description": "FTL freight Chicago-Dallas, 2 shipments",
+    "amount": 1850.0,
+    "currency": "USD",
+    "status": "open",
+    "tolerance_pct": 2.0,
+    "tolerance_abs": 50.0
+  },
+  {
+    "po_number": "PO-7877",
+    "vendor_id": "V-104",
+    "description": "Structural steel package, warehouse expansion (3 progress billings expected)",
+    "amount": 54000.0,
+    "currency": "USD",
+    "status": "open",
+    "tolerance_pct": 2.0,
+    "tolerance_abs": 50.0
+  },
+  {
+    "po_number": "PO-7869",
+    "vendor_id": "V-105",
+    "description": "Q3 digital campaign management",
+    "amount": 5200.0,
+    "currency": "USD",
+    "status": "open",
+    "tolerance_pct": 2.0,
+    "tolerance_abs": 50.0
+  }
+]

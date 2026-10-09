@@ -37,6 +37,13 @@ def _similarity(a: str, b: str) -> float:
 
 
 def match_vendor(extracted_name: str | None, vendors: list[dict]) -> dict:
+    if not vendors:
+        return {
+            "matched": False,
+            "similarity": 0.0,
+            "closest": None,
+            "detail": "no vendor records configured in database; matching cannot be completed",
+        }
     if not extracted_name:
         return {"matched": False, "detail": "no vendor name extracted"}
     best, best_score, best_alias = None, 0.0, None
@@ -110,6 +117,14 @@ def match(extract_result: dict, prior_invoices: list[dict] | None = None) -> dic
 
     def cumulative_prior_for(po_number: str) -> float:
         return sum(inv["total"] for inv in prior_invoices if inv.get("po_ref") == po_number)
+
+    if not pos:
+        result["po_match"] = {
+            "matched": False,
+            "match_type": "explicit" if po_ref else "fuzzy_vendor_amount",
+            "detail": "no purchase order records configured in database; PO matching cannot be completed",
+        }
+        return result
 
     if po_ref:
         po = next((p for p in pos if p["po_number"] == po_ref), None)

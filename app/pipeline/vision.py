@@ -184,7 +184,7 @@ def extract_via_vision(pdf_path: Path, text_chars: int) -> dict:
 
     from groq import APIStatusError, Groq  # deferred: text-only runs never need the SDK
 
-    client = Groq(api_key=config.GROQ_API_KEY)
+    client = Groq(api_key=config.GROQ_API_KEY, timeout=90.0, max_retries=0)
     renders, num_pages = _budgeted_renders(pdf_path)
 
     last_error = None
@@ -294,7 +294,7 @@ def _to_result(ex: VisionExtraction, text_chars: int, num_pages: int, render: di
                       else "vision: no tax line on document",
         },
         "total": field("total", ex.total),
-        "currency": field("currency", ex.currency or "USD"),
+        "currency": field("currency", ex.currency),
     }
 
     warnings = [f"field '{name}' not found on scanned document"

@@ -1,4 +1,4 @@
-"""SSE live-stream tests: deferred runs execute while streaming; finished runs replay."""
+"""SSE tests: deferred runs execute on the queue; streams tail or replay persisted events."""
 
 import json
 
@@ -24,23 +24,30 @@ def test_deferred_run_executes_live_on_stream():
         assert created["status"] == "pending"
         run_id = created["run_id"]
 
-        # not executed yet
-        assert c.get(f"/api/runs/{run_id}").json()["status"] == "running"
+        # The background queue may start as soon as the upload is accepted.
+        assert c.get(f"/api/runs/{run_id}").json()["status"] in {"running", "completed"}
 
         events = _events(c, run_id)
         statuses = [(e["stage"], e["status"]) for e in events]
-        assert statuses == [
-            ("extract", "running"), ("extract", "completed"),
-            ("guardrails", "running"), ("guardrails", "completed"),
-            ("validate", "running"), ("validate", "completed"),
-            ("match", "running"), ("match", "completed"),
-            ("decide", "running"), ("decide", "completed"),
-            ("pipeline", "completed"),
-        ]
+        if events[0].get("replay"):
+            assert statuses == [
+                ("extract", "completed"), ("guardrails", "completed"),
+                ("validate", "completed"), ("match", "completed"),
+                ("decide", "completed"), ("pipeline", "completed"),
+            ]
+        else:
+            assert statuses == [
+                ("extract", "running"), ("extract", "completed"),
+                ("guardrails", "running"), ("guardrails", "completed"),
+                ("validate", "running"), ("validate", "completed"),
+                ("match", "running"), ("match", "completed"),
+                ("decide", "running"), ("decide", "completed"),
+                ("pipeline", "completed"),
+            ]
         # completed events are real executions with measured durations + outputs
         completed = [e for e in events if e["status"] == "completed" and e["stage"] != "pipeline"]
-        assert all("duration_ms" in e and "output" in e for e in completed)
-        assert not any(e.get("replay") for e in events)
+        assert all("output" in e for e in completed)
+        assert all("duration_ms" in e for e in completed if not e.get("replay"))
         assert events[-1]["result"]["decide"]["decision"] == "auto_approve"
 
         # stream execution persisted the run
@@ -84,7 +91,76 @@ def test_failed_run_stream_replays_error():
         assert live[-1]["error"]
 
         replay = _events(c, run_id)  # reopening replays the stored error
-        assert replay == [{
+        assert replay[-1] == {
             "stage": "pipeline", "status": "failed",
             "error": live[-1]["error"], "replay": True,
-        }]
+        }
+
+
+def test_deferred_upload_queue_drains_multiple_files_to_terminal_state():
+    import time
+
+    filenames = [
+        "INV-2026-1099_acme_injection.pdf",
+        "INV-0092_vertex_no_po.pdf",
+        "INV-8613_meridian.pdf",
+    ]
+    with TestClient(app) as client:
+        run_ids = [upload_fixture(client, name, defer=True)["run_id"] for name in filenames]
+        deadline = time.monotonic() + 15
+        runs = []
+        while time.monotonic() < deadline:
+            runs = [client.get(f"/api/runs/{run_id}").json() for run_id in run_ids]
+            if all(run["status"] in {"completed", "failed"} for run in runs):
+                break
+            time.sleep(0.05)
+
+        assert len(runs) == 3
+        assert all(run["status"] in {"completed", "failed"} for run in runs)
+        for run in runs:
+            if run["status"] == "failed":
+                assert run["error"]
+                assert run["trace"]
+            else:
+                assert run["decision"]
+                assert run["trace"]
+
+
+def test_extraction_timeout_marks_failed_with_error_and_trace(monkeypatch, tmp_path):
+    import time
+    import app.pipeline.run as pipeline_run
+
+    def slow_extraction(_path):
+        time.sleep(0.1)
+        return {}
+
+    monkeypatch.setattr(pipeline_run, "extract_invoice", slow_extraction)
+    monkeypatch.setattr(pipeline_run, "EXTRACTION_TIMEOUT_SECONDS", 0.01)
+    with TestClient(app) as client:
+        corrupt_pdf = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\nthis is valid for upload\n%%EOF"
+        response = client.post(
+            "/api/invoices",
+            files={"file": ("slow.pdf", corrupt_pdf, "application/pdf")},
+        )
+        assert response.status_code == 200
+        run = client.get(f"/api/runs/{response.json()['run_id']}").json()
+        assert run["status"] == "failed"
+        assert "timeout" in run["error"].lower()
+        assert run["trace"]
+
+
+def test_stale_running_run_is_marked_failed_with_trace():
+    from datetime import datetime, timedelta, timezone
+    from app import db
+
+    with TestClient(app) as client:
+        run_id = db.create_run("stale.pdf", "stale.pdf")
+        stale_date = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat(timespec="seconds")
+        with db._connect() as con:
+            con.execute("UPDATE runs SET created_at=? WHERE id=?", (stale_date, run_id))
+
+        run = client.get(f"/api/runs/{run_id}").json()
+        assert run["status"] == "failed"
+        assert "stale-run guard" in run["error"].lower()
+        assert run["trace"]
+        assert _events(client, run_id)[-1]["status"] == "failed"

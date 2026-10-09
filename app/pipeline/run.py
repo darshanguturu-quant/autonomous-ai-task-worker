@@ -19,6 +19,7 @@ Event shape:
 """
 
 import logging
+import threading
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -30,6 +31,36 @@ from app.pipeline import validate as validate_mod
 from app.pipeline.extract import ExtractionServiceBusy, VisionNotConfigured, extract_invoice
 
 log = logging.getLogger("pipeline")
+EXTRACTION_TIMEOUT_SECONDS = 120
+
+
+def _extract_with_timeout(pdf_path: str | Path) -> dict:
+    """Run sync PDF/LLM extraction with a hard caller deadline.
+
+    The daemon thread prevents an unresponsive third-party call from keeping
+    the run worker alive after the deadline. The Groq client also has its own
+    shorter network timeout so abandoned calls normally terminate promptly.
+    """
+    finished = threading.Event()
+    result: dict = {}
+
+    def invoke() -> None:
+        try:
+            result["value"] = extract_invoice(pdf_path)
+        except BaseException as exc:
+            result["error"] = exc
+        finally:
+            finished.set()
+
+    thread = threading.Thread(target=invoke, name="invoice-extraction", daemon=True)
+    thread.start()
+    if not finished.wait(EXTRACTION_TIMEOUT_SECONDS):
+        raise TimeoutError(
+            f"Invoice extraction exceeded the {EXTRACTION_TIMEOUT_SECONDS}-second timeout."
+        )
+    if "error" in result:
+        raise result["error"]
+    return result["value"]
 
 
 def public_error(exc: Exception) -> str:
@@ -68,7 +99,7 @@ def run_pipeline(pdf_path: str | Path, prior_invoices: list[dict] | None = None)
     out: dict = {}
 
     stages = [
-        ("extract", lambda: extract_invoice(pdf_path)),
+        ("extract", lambda: _extract_with_timeout(pdf_path)),
         ("guardrails", lambda: guardrails_mod.screen(out["extract"])),
         ("validate", lambda: validate_mod.validate(out["extract"])),
         ("match", lambda: match_mod.match(out["extract"], prior_invoices)),

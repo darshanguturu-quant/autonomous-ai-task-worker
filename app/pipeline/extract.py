@@ -106,14 +106,26 @@ def parse_fields(text: str) -> dict[str, dict]:
         fields["tax_rate"] = _missing("no tax line on document")
 
     # (?<![A-Za-z]) keeps this from matching the tail of "Subtotal".
-    m = _search(text, [rf"(?<![A-Za-z])total\s*(?:due)?\s*\(?(?:USD)?\)?\s*:?\s*(?:USD\s*)?{MONEY}"])
-    fields["total"] = _field(_money(m.group(1)), 0.95, "label: total due") if m else _missing()
-
-    fields["currency"] = (
-        _field("USD", 0.95, "label: USD on document")
-        if re.search(r"\bUSD\b", text)
-        else _field("USD", 0.50, "assumed: no currency marker found")
+    m = _search(text, [
+        rf"(?<![A-Za-z])total\s*(?:due)?\s*\(?(?:USD)?\)?\s*:?\s*(?:USD\s*)?{MONEY}",
+        rf"amount\s+due\s*:?\s*(?:USD\s*)?{MONEY}",
+    ])
+    fields["total"] = (
+        _field(_money(m.group(1)), 0.95, "label: amount due" if "amount" in m.group(0).lower() else "label: total due")
+        if m else _missing()
     )
+
+    currency_match = _search(text, [
+        r"\b(USD|CAD|AUD|NZD|EUR|GBP|JPY|CNY|INR|CHF|SGD|HKD|MXN|BRL|ZAR)\b"
+    ])
+    if currency_match:
+        fields["currency"] = _field(
+            currency_match.group(1).upper(), 0.95, "explicit ISO currency code on document"
+        )
+    elif "$" in text:
+        fields["currency"] = _missing("dollar symbol present; ISO currency code not specified")
+    else:
+        fields["currency"] = _missing("no currency code or symbol found")
     return fields
 
 

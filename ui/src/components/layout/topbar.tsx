@@ -1,39 +1,48 @@
-import { Moon, Search, Sun } from "lucide-react";
+import { Moon, Sun, ShieldCheck, Binary } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
 
-export function Topbar({
-  title,
-  theme,
-  onToggleTheme,
-  onOpenPalette,
-}: {
-  title: string;
+interface TopbarProps {
   theme: "dark" | "light";
   onToggleTheme: () => void;
-  onOpenPalette: () => void;
-}) {
+}
+
+export function Topbar({ theme, onToggleTheme }: TopbarProps) {
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-5 backdrop-blur md:px-8">
-      <h1 className="font-display flex-1 truncate text-sm font-bold tracking-tight">
-        {title}
-      </h1>
-      <button
-        onClick={onOpenPalette}
-        className="hidden h-8 cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-2.5 text-xs text-faint transition-colors hover:border-border-strong hover:text-muted-foreground sm:flex"
-      >
-        <Search className="size-3.5" />
-        <span>Search or jump…</span>
-        <Kbd className="ml-2">Ctrl K</Kbd>
-      </button>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onToggleTheme}
-        aria-label="Toggle theme"
-      >
-        {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-      </Button>
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border bg-background/85 px-4 backdrop-blur-md sm:px-8">
+      {/* Brand Identity */}
+      <div className="flex items-center gap-3">
+        <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs">
+          <Binary className="size-5" />
+        </div>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <span className="font-display text-base font-extrabold tracking-tight text-foreground">
+              CentrAlign AI
+            </span>
+            <span className="rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.2 font-mono text-[9px] font-bold tracking-wider text-primary uppercase">
+              Enterprise
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Controls */}
+      <div className="flex items-center gap-3">
+        <div className="hidden items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground md:flex">
+          <ShieldCheck className="size-3.5 text-success" />
+          <span className="font-mono text-[11px]">Audit Engine Active</span>
+        </div>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onToggleTheme}
+          aria-label="Toggle visual theme"
+          className="size-8 rounded-lg"
+        >
+          {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+        </Button>
+      </div>
     </header>
   );
 }

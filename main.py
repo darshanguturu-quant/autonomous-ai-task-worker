@@ -12,5 +12,5 @@ from app import config  # noqa: F401  - loads .env before reading PORT
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
-    print(f"Invoice Processing Automation -> http://127.0.0.1:{port}")
+    print(f"CentrAlign AI -> http://127.0.0.1:{port}")
     uvicorn.run("app.api:app", host="127.0.0.1", port=port)

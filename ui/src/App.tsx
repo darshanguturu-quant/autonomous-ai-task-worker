@@ -1,23 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, CircleAlert, RotateCcw } from "lucide-react";
-import { CommandPalette } from "@/components/layout/command-palette";
-import { Sidebar, type View } from "@/components/layout/sidebar";
+import { CheckCircle2, CircleAlert } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
-import { KpiCards } from "@/components/dashboard/kpi-cards";
-import { RunsTable } from "@/components/dashboard/runs-table";
-import { UploadZone } from "@/components/ingest/upload-zone";
-import { PipelineView } from "@/components/run-view/pipeline-view";
-import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { UploadBox } from "@/components/ingest/upload-box";
+import { ProcessingStatusArea } from "@/components/run-view/processing-status-area";
+import { StructuredResultsTable } from "@/components/run-view/structured-results-table";
+import { DecisionEvidenceSection } from "@/components/run-view/decision-evidence-section";
+import { AuditHistory } from "@/components/dashboard/audit-history";
+import { WorkerPanel } from "@/components/worker/worker-panel";
 import { useTheme } from "@/hooks/use-theme";
+import { useRunStream } from "@/hooks/use-run-stream";
 import { api } from "@/lib/api";
-import type { RunSummary } from "@/lib/types";
+import type { RunSummary, RunTrace } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-interface ActiveRun {
-  id: number;
-  label: string;
-}
 
 interface Toast {
   id: number;
@@ -27,189 +21,200 @@ interface Toast {
 
 export default function App() {
   const { theme, toggle: toggleTheme } = useTheme();
-  const [view, setView] = useState<View>("dashboard");
+
+  // Run and data states
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
-  const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const [resetOpen, setResetOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [activeRunId, setActiveRunId] = useState<number | null>(null);
+  const [activeFilename, setActiveFilename] = useState<string | undefined>(undefined);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  // SSE Stream hook for live or replayed run
+  const stream = useRunStream(activeRunId);
+  const { stages, final } = stream;
 
   const toast = useCallback((kind: Toast["kind"], message: string) => {
     const id = Date.now() + Math.random();
     setToasts((t) => [...t, { id, kind, message }]);
-    window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3800);
+    window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000);
   }, []);
 
   const refreshRuns = useCallback(() => {
-    api.listRuns().then(setRuns).catch(() => toast("error", "Could not load run history"));
-  }, [toast]);
+    api
+      .listRuns()
+      .then(setRuns)
+      .catch(() => {
+        // Silently handle if backend is starting
+      });
+  }, []);
 
   useEffect(() => {
     refreshRuns();
   }, [refreshRuns]);
 
-  // Ctrl/Cmd+K opens the palette
+  // When run finishes successfully or fails, refresh audit log
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setPaletteOpen((o) => !o);
+    if (final) {
+      refreshRuns();
+      if (final.status === "completed") {
+        toast("success", "Document processing and verification completed.");
+      } else if (final.status === "failed") {
+        toast("error", `Processing failed: ${final.error}`);
       }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+    }
+  }, [final, refreshRuns, toast]);
 
-  const startRun = useCallback(
-    async (fn: () => Promise<{ run_id: number }>, label: string) => {
-      setBusy(true);
+  // Handle genuine file upload
+  const handleUpload = useCallback(
+    async (file: File) => {
+      setUploadError(null);
+      setIsUploading(true);
+      setActiveFilename(file.name);
+
       try {
-        const { run_id } = await fn();
-        setActiveRun({ id: run_id, label });
-        setView("run");
-      } catch (e) {
-        toast("error", e instanceof Error ? e.message : "Could not start the run");
+        const { run_id } = await api.uploadInvoice(file);
+        setActiveRunId(run_id);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to upload invoice document.";
+        setUploadError(msg);
+        toast("error", msg);
       } finally {
-        setBusy(false);
+        setIsUploading(false);
       }
     },
-    [toast],
+    [toast]
   );
 
-  const uploadFile = useCallback(
-    (file: File) => void startRun(() => api.uploadInvoice(file), file.name),
-    [startRun],
-  );
-
-  const openRun = useCallback((r: RunSummary) => {
-    setActiveRun({ id: r.id, label: r.invoice_number ?? r.filename });
-    setView("run");
+  // Handle reopening a past genuine run from the audit log
+  const handleOpenRun = useCallback((r: RunSummary) => {
+    setUploadError(null);
+    setActiveFilename(r.filename);
+    setActiveRunId(r.id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  const doReset = useCallback(async () => {
-    setResetOpen(false);
+  // Reset demo / run history
+  const handleClearHistory = useCallback(async () => {
     try {
       const { deleted } = await api.resetDemoState();
-      setActiveRun(null);
-      setView("dashboard");
+      setActiveRunId(null);
+      setActiveFilename(undefined);
+      setUploadError(null);
       refreshRuns();
-      toast("success", `Demo state reset — ${deleted} run(s) cleared, dedup & PO history fresh`);
+      toast("success", `Run history reset — cleared ${deleted} persisted record(s).`);
     } catch {
-      toast("error", "Reset failed — is the backend running?");
+      toast("error", "Failed to clear run history.");
     }
   }, [refreshRuns, toast]);
 
-  const titles: Record<View, string> = {
-    dashboard: "Dashboard",
-    process: "Process invoice",
-    run: activeRun ? `Run · ${activeRun.label}` : "Run",
-  };
+  // Reset active document view to upload fresh
+  const handleResetActiveDoc = useCallback(() => {
+    setActiveRunId(null);
+    setActiveFilename(undefined);
+    setUploadError(null);
+  }, []);
+
+  const isPipelineRunning =
+    isUploading ||
+    (activeRunId != null &&
+      final == null &&
+      Object.values(stages).some((s) => s.status === "running" || s.status === "idle"));
+
+  const completedTrace: RunTrace | null =
+    final?.status === "completed" ? final.result : null;
+
+  const failedError =
+    uploadError || (final?.status === "failed" ? final.error : null);
 
   return (
-    <div className="min-h-full">
-      <Sidebar
-        view={view}
-        onNavigate={setView}
-        onResetDemo={() => setResetOpen(true)}
-        onOpenPalette={() => setPaletteOpen(true)}
-      />
+    <div className="min-h-full flex flex-col bg-background text-foreground antialiased selection:bg-primary/20">
+      {/* 1. CentrAlign AI Header */}
+      <Topbar theme={theme} onToggleTheme={toggleTheme} />
 
-      <div className="md:pl-60">
-        <Topbar
-          title={titles[view]}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          onOpenPalette={() => setPaletteOpen(true)}
-        />
+      <main className="mx-auto w-full max-w-5xl flex-1 space-y-8 p-4 sm:p-6 md:p-8">
+        <section aria-label="Autonomous task worker">
+          <WorkerPanel onTaskCompleted={refreshRuns} />
+        </section>
 
-        <main className="mx-auto max-w-6xl space-y-6 p-5 md:p-8">
-          {view === "dashboard" && (
-            <>
-              <KpiCards runs={runs} />
-              <RunsTable
-                runs={runs}
-                onOpenRun={openRun}
-                onGoProcess={() => setView("process")}
-              />
-            </>
-          )}
+        {/* 3. Central Document-Upload Box */}
+        <section aria-label="Document Upload Area">
+          <UploadBox
+            onUpload={handleUpload}
+            isProcessing={isPipelineRunning}
+            activeFilename={activeFilename}
+            onReset={handleResetActiveDoc}
+            statusMessage={
+              isUploading
+                ? "Verifying file integrity and uploading…"
+                : "Executing deterministic five-stage pipeline…"
+            }
+          />
+        </section>
 
-          {view === "process" && (
-            <div className="mx-auto max-w-4xl space-y-8">
-              <UploadZone onUpload={uploadFile} busy={busy} />
-            </div>
-          )}
-
-          {view === "run" && activeRun && (
-            <PipelineView
-              runId={activeRun.id}
-              label={activeRun.label}
-              onBack={() => setView("dashboard")}
-              onFinished={refreshRuns}
+        {/* 4. Document-Processing Status Area (Displayed after upload / when active) */}
+        {(activeRunId != null || failedError) && (
+          <section aria-label="Processing Status Flow">
+            <ProcessingStatusArea
+              stages={stages}
+              isProcessing={isPipelineRunning}
+              isComplete={completedTrace != null}
+              failedError={failedError}
+              totalDurationMs={
+                final?.status === "completed" ? undefined : undefined
+              }
             />
-          )}
-        </main>
-      </div>
+          </section>
+        )}
 
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        runs={runs}
-        actions={{
-          goDashboard: () => setView("dashboard"),
-          goProcess: () => setView("process"),
-          openRun,
-          refreshRuns,
-          resetDemo: () => setResetOpen(true),
-          toggleTheme,
-          theme,
-        }}
-      />
+        {/* 5. Structured Results Table (Displayed only when actual results are available) */}
+        {completedTrace && (
+          <section aria-label="Structured Extraction & Verification Results">
+            <StructuredResultsTable trace={completedTrace} />
+          </section>
+        )}
 
-      {/* Reset demo state confirmation */}
-      <Dialog open={resetOpen} onClose={() => setResetOpen(false)}>
-        <div className="flex items-start gap-3.5">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-warning/40 bg-warning/10 text-warning">
-            <RotateCcw className="size-4.5" />
-          </div>
-          <div>
-            <h2 className="font-display text-base font-bold tracking-tight">
-              Reset demo state?
-            </h2>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              Deletes all run history so <strong className="text-foreground">duplicate
-              detection</strong> and <strong className="text-foreground">cumulative PO
-              billing</strong> start completely fresh — not just a display clear.
-            </p>
-          </div>
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setResetOpen(false)}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={doReset}>
-            Reset everything
-          </Button>
-        </div>
-      </Dialog>
+        {/* 6. Decision and Evidence Section */}
+        {completedTrace && (
+          <section aria-label="Decision and Deterministic Evidence">
+            <DecisionEvidenceSection trace={completedTrace} />
+          </section>
+        )}
 
-      {/* toasts */}
-      <div className="fixed right-4 bottom-4 z-50 flex w-80 flex-col gap-2">
+        {/* 7. Processing Run Audit History (Genuine Runs Only) */}
+        <section aria-label="Audit History" className="border-t border-border pt-6">
+          <AuditHistory
+            runs={runs}
+            onOpenRun={handleOpenRun}
+            onClearHistory={handleClearHistory}
+            activeRunId={activeRunId}
+          />
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-border bg-surface/50 py-4 text-center text-xs text-muted-foreground">
+        CentrAlign AI — Invoice Processing &amp; Verification
+      </footer>
+
+      {/* Toast Notification Stack */}
+      <div className="fixed right-4 bottom-4 z-50 flex w-84 max-w-[calc(100vw-2rem)] flex-col gap-2">
         {toasts.map((t) => (
           <div
             key={t.id}
             className={cn(
-              "toast-in flex items-start gap-2.5 rounded-lg border bg-card p-3.5 text-sm shadow-lg",
-              t.kind === "success" ? "border-success/40" : "border-destructive/40",
+              "flex items-start gap-2.5 rounded-xl border bg-card p-3.5 text-xs shadow-lg transition-all",
+              t.kind === "success"
+                ? "border-emerald-500/40 text-foreground"
+                : "border-destructive/40 text-foreground"
             )}
           >
             {t.kind === "success" ? (
-              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" />
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
             ) : (
               <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
             )}
-            <span className="leading-snug">{t.message}</span>
+            <span className="leading-relaxed font-medium">{t.message}</span>
           </div>
         ))}
       </div>

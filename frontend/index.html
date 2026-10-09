@@ -3,411 +3,448 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Invoice Processing Automation</title>
+<title>CentrAlign AI — Invoice Processing Automation</title>
+<meta name="description" content="CentrAlign AI — Invoice processing and verification.">
 <style>
   :root {
-    --bg: #0f1420; --panel: #171e2e; --panel2: #1d2639; --line: #2a3550;
-    --text: #e8ecf4; --muted: #8b96ad; --accent: #5b8cff;
-    --green: #2ecc8f; --amber: #f0b34e; --red: #ef6363;
+    --bg: #fff8e8; --panel: #fffdf7; --panel2: #f7efd9; --line: #e7d8b8;
+    --text: #352d23; --muted: #746856; --faint: #90836d; --accent: #a65f20;
+    --green: #10b981; --amber: #f59e0b; --red: #ef4444; --sky: #0284c7; --purple: #8b5cf6;
     font-size: 15px;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font-family: "Segoe UI", system-ui, sans-serif; }
-  header { padding: 18px 28px; border-bottom: 1px solid var(--line);
-           display: flex; align-items: baseline; gap: 14px; }
-  header h1 { font-size: 1.25rem; margin: 0; }
-  header .sub { color: var(--muted); font-size: .85rem; }
-  main { max-width: 1240px; margin: 0 auto; padding: 22px 28px 60px; }
-  h2 { font-size: .95rem; color: var(--muted); text-transform: uppercase;
-       letter-spacing: .08em; margin: 30px 0 10px; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
-  .muted { color: var(--muted); }
-  .grid2 { display: grid; grid-template-columns: minmax(280px, 1fr) 1.4fr; gap: 16px; }
-  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 16px 32px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; background: rgba(255,253,247,0.92); backdrop-filter: blur(8px); position: sticky; top: 0; z-index: 10; }
+  header .brand { display: flex; align-items: center; gap: 12px; }
+  header .logo { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 16px; }
+  header h1 { font-size: 1.15rem; margin: 0; font-weight: 700; letter-spacing: -0.02em; }
+  header .tag { font-size: 0.7rem; font-family: monospace; background: rgba(59,130,246,0.15); color: var(--accent); padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; margin-left: 6px; }
+  header .sub { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 28px 24px 60px; display: flex; flex-col: column; gap: 28px; }
 
-  /* upload */
-  #dropzone { padding: 30px 20px; text-align: center; border: 2px dashed var(--line);
-              border-radius: 10px; margin: 14px; cursor: pointer; transition: .15s; }
-  #dropzone.drag, #dropzone:hover { border-color: var(--accent); background: #16203a; }
-  #dropzone .big { font-size: 1.02rem; font-weight: 600; margin-bottom: 6px; }
+  /* Upload Box */
+  #dropzone { border: 2px dashed var(--line); border-radius: 16px; padding: 36px 24px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--panel); outline: none; }
+  #dropzone:hover, #dropzone.drag { border-color: var(--accent); background: rgba(166,95,32,0.06); }
+  #dropzone.error { border-color: var(--red); background: rgba(239,68,68,0.05); }
+  #dropzone .icon { width: 54px; height: 54px; margin: 0 auto 14px; border-radius: 14px; background: var(--panel2); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  #dropzone .title { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+  #dropzone .desc { font-size: 0.85rem; color: var(--muted); max-width: 440px; margin: 0 auto 16px; line-height: 1.4; }
+  .btn-upload { background: var(--accent); color: #fff; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-upload:hover { opacity: 0.9; }
+  .upload-note { font-size: 0.75rem; color: var(--faint); margin-top: 14px; }
+  #upload-err-msg { display: none; margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: rgba(239,68,68,0.08); border: 1px solid rgba(185,28,28,0.25); color: #991b1b; font-size: 0.8rem; text-align: left; }
 
-  /* samples */
-  .sample { display: flex; align-items: center; gap: 10px; padding: 9px 14px;
-            border-bottom: 1px solid var(--line); font-size: .86rem; }
-  .sample:last-child { border-bottom: none; }
-  .sample .name { font-weight: 600; }
-  .sample .meta { color: var(--muted); font-size: .78rem; }
-  .sample .grow { flex: 1; min-width: 0; }
-  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px;
-          font-size: .7rem; font-weight: 600; background: var(--panel2);
-          color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
-  .chip.edge { color: var(--amber); border-color: #6e5518; }
+  /* Processing Status Area */
+  .section-title { font-size: 0.95rem; font-weight: 700; margin: 0 0 12px; color: var(--text); }
+  .section-sub { font-size: 0.78rem; color: var(--muted); margin: -8px 0 14px; }
+  .status-area { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .stages-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 14px; }
+  @media (max-width: 768px) { .stages-grid { grid-template-columns: 1fr; } }
+  .stage-box { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--panel2); font-size: 0.8rem; }
+  .stage-box.running { border-color: var(--accent); background: rgba(59,130,246,0.1); }
+  .stage-box.success { border-color: rgba(16,185,129,0.4); }
+  .stage-box.error { border-color: rgba(239,68,68,0.4); }
+  .stage-box.flagged { border-color: rgba(245,158,11,0.4); }
+  .stage-head { font-weight: 700; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .stage-status { font-size: 0.72rem; color: var(--muted); font-family: monospace; }
 
-  button { background: var(--panel2); color: var(--text); border: 1px solid var(--line);
-           border-radius: 7px; padding: 7px 14px; font-size: .85rem; cursor: pointer; }
-  button:hover { border-color: var(--accent); }
-  button.reset-demo { border-color: var(--amber); color: var(--amber); }
-  button.reset-demo:hover { background: var(--amber); color: #1a1408; }
-  #reset-note { font-size: .8rem; color: var(--green); opacity: 0; transition: opacity .3s; }
-  #reset-note.show { opacity: 1; }
-  button.small { padding: 4px 12px; font-size: .78rem; }
-  button:disabled { opacity: .5; cursor: wait; }
-  .toolbar { display: flex; gap: 10px; align-items: center; margin: 10px 0; }
-  .spacer { flex: 1; }
+  /* Structured Results Table */
+  .table-container { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { background: #f5eddc; color: var(--faint); font-size: 0.72rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+  td { padding: 10px 14px; border-bottom: 1px solid rgba(34,48,77,0.5); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  td.value { font-family: monospace; font-weight: 600; color: var(--text); }
+  td.evidence { font-family: monospace; font-size: 0.75rem; color: var(--muted); line-height: 1.35; max-width: 380px; }
+  .badge-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; border: 1px solid; }
+  .badge-chip.extracted { background: rgba(2, 132, 199, 0.12); color: #38bdf8; border-color: rgba(2, 132, 199, 0.3); }
+  .badge-chip.calculated { background: rgba(139, 92, 246, 0.12); color: #c084fc; border-color: rgba(139, 92, 246, 0.3); }
+  .badge-chip.matched { background: rgba(16, 185, 129, 0.12); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
+  .badge-chip.missing { background: rgba(239, 68, 68, 0.12); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+  .badge-chip.uncertain { background: rgba(245, 158, 11, 0.12); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
 
-  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px;
-           font-size: .75rem; font-weight: 600; }
-  .badge.auto_approve { background: #103528; color: var(--green); }
-  .badge.needs_review { background: #3a2d10; color: var(--amber); }
-  .badge.reject, .badge.failed { background: #3a1616; color: var(--red); }
-  .badge.running { background: #1c2b4d; color: var(--accent); }
+  /* Decision & Evidence */
+  .decision-box { border-radius: 12px; padding: 18px 22px; border: 1px solid; margin-bottom: 16px; }
+  .decision-box.auto_approve { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.35); }
+  .decision-box.needs_review { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.35); }
+  .decision-box.reject, .decision-box.failed { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.35); }
+  .decision-head { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 4px; }
+  .decision-box.auto_approve .decision-head { color: #34d399; }
+  .decision-box.needs_review .decision-head { color: #fbbf24; }
+  .decision-box.reject .decision-head, .decision-box.failed .decision-head { color: #f87171; }
+  .decision-reason { font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
+  .decision-exp { font-size: 0.8rem; color: var(--muted); line-height: 1.45; }
 
-  /* live run view */
-  #run-title { display: flex; align-items: center; gap: 12px; }
-  .live-chip { font-size: .7rem; font-weight: 700; letter-spacing: .1em;
-               padding: 2px 9px; border-radius: 4px; }
-  .live-chip.live { background: #3a1616; color: #ff8f8f; animation: pulse 1.2s infinite; }
-  .live-chip.replay { background: var(--panel2); color: var(--muted); }
-  @keyframes pulse { 50% { opacity: .45; } }
-
-  .stage { margin: 10px 0; overflow: hidden; }
-  .stage-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-                cursor: pointer; user-select: none; }
-  .stage-head .dot { width: 12px; height: 12px; border-radius: 50%;
-                     background: var(--line); flex: none; }
-  .stage.done .dot { background: var(--green); }
-  .stage.active .dot { background: var(--accent); animation: pulse .9s infinite; }
-  .stage.error .dot { background: var(--red); }
-  .stage-head .name { font-weight: 650; width: 84px; }
-  .stage-head .summary { color: var(--muted); font-size: .84rem; flex: 1; min-width: 0; }
-  .stage.done .summary { color: #b9c4da; }
-  .stage-head .ms { color: var(--muted); font-size: .76rem; font-variant-numeric: tabular-nums; }
-  .stage-head .caret { color: var(--muted); font-size: .8rem; transition: .15s; }
-  .stage.open .caret { transform: rotate(90deg); }
-  .stage-body { display: none; border-top: 1px solid var(--line);
-                padding: 12px 16px; background: #121828; max-height: 420px; overflow: auto; }
-  .stage.open .stage-body { display: block; }
-  pre { margin: 0; font-size: .78rem; line-height: 1.45; color: #c8d3e8;
-        white-space: pre-wrap; word-break: break-word;
-        font-family: Consolas, "Cascadia Mono", monospace; }
-
-  .decision-banner { padding: 16px 20px; border-radius: 10px; margin: 14px 0;
-                     border: 1px solid; font-size: .95rem; }
-  .decision-banner.auto_approve { background: #10281e; border-color: #1d5c42; }
-  .decision-banner.needs_review { background: #2d2410; border-color: #6e5518; }
-  .decision-banner.reject, .decision-banner.failed { background: #2d1414; border-color: #6e2727; }
-  .decision-banner .title { font-weight: 700; font-size: 1.05rem; margin-bottom: 6px; }
-  .decision-banner .title.auto_approve { color: var(--green); }
-  .decision-banner .title.needs_review { color: var(--amber); }
-  .decision-banner .title.reject, .decision-banner .title.failed { color: var(--red); }
-
-  /* dashboard */
-  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
-  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); }
-  th { color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: uppercase; }
-  tbody tr { cursor: pointer; }
-  tbody tr:hover { background: var(--panel2); }
-  tbody tr.selected { background: #21304f; }
-  td.num { font-variant-numeric: tabular-nums; }
-  .empty { padding: 26px; text-align: center; color: var(--muted); }
+  /* Audit history */
+  .history-section { border-top: 1px solid var(--line); padding-top: 24px; margin-top: 10px; }
+  .btn-reset { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); color: #fbbf24; padding: 5px 12px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-weight: 600; }
+  .btn-reset:hover { background: rgba(245,158,11,0.25); }
+  .empty-history { padding: 32px; text-align: center; color: var(--muted); font-size: 0.8rem; border: 1px dashed var(--line); border-radius: 12px; }
 </style>
 </head>
 <body>
-<header>
-  <h1>Invoice Processing Automation</h1>
-  <span class="sub">Extract &rarr; Validate &rarr; Match &rarr; Decide &mdash; every stage below is a real execution, streamed as it runs</span>
-</header>
-<main>
-  <div class="grid2">
-    <section>
-      <h2>Process an invoice</h2>
-      <div class="panel">
-        <div id="dropzone">
-          <div class="big">Drop an invoice PDF here</div>
-          <div class="muted">or click to choose a file</div>
-          <input type="file" id="file-input" accept="application/pdf" hidden>
-        </div>
-      </div>
-    </section>
-    <section>
-      <h2>Sample invoices <span class="muted" style="text-transform:none;letter-spacing:0">(each edge case is one click, re-runnable)</span></h2>
-      <div class="panel" id="samples"></div>
-    </section>
-  </div>
 
-  <section id="run-section" hidden>
-    <h2 id="run-title"></h2>
-    <div id="decision-banner"></div>
-    <div id="stages"></div>
+<header>
+  <div class="brand">
+    <div class="logo">C</div>
+    <div>
+      <div style="display:flex;align-items:center">
+        <h1>CentrAlign AI</h1>
+        <span class="tag">Enterprise Verification</span>
+      </div>
+      <div class="sub">Deterministic Document Verification · Five-Stage Ingestion Pipeline</div>
+    </div>
+  </div>
+  <div>
+    <button class="btn-reset" onclick="resetRuns()">Clear History</button>
+  </div>
+</header>
+
+<main>
+  <!-- Central Document-Upload Box -->
+  <section>
+    <div id="dropzone" tabindex="0">
+      <div class="icon" id="drop-icon">&#128196;</div>
+      <div class="title" id="drop-title">Upload Invoice Document</div>
+      <div class="desc" id="drop-desc">Drag and drop your PDF invoice here, or click to browse your filesystem.</div>
+      <input type="file" id="file-input" accept=".pdf,application/pdf" hidden>
+      <button type="button" class="btn-upload" id="btn-browse" onclick="event.stopPropagation(); $('file-input').click();">
+        Select PDF Document
+      </button>
+      <div class="upload-note">
+        Accepts PDF documents only (up to 15 MB). Integrity header (%PDF) verified before processing.
+      </div>
+      <div id="upload-err-msg"></div>
+    </div>
   </section>
 
-  <h2>Dashboard &mdash; run history</h2>
-  <div class="toolbar">
-    <button onclick="loadRuns()">Refresh</button>
-    <span class="muted" style="font-size:.8rem">click a row to reopen its full trace</span>
-    <span class="spacer"></span>
-    <span id="reset-note">&#10003; Demo state reset &mdash; duplicate &amp; cumulative PO history cleared</span>
-    <button class="reset-demo" onclick="resetDemoState()"
-            title="Clears run history AND all processing state: duplicate detection and cumulative PO billing start fresh">
-      &#8634; Reset demo state</button>
-  </div>
-  <div class="panel">
-    <table>
-      <thead><tr>
-        <th>#</th><th>Invoice</th><th>Vendor</th><th>Total</th><th>PO</th>
-        <th>Decision</th><th>Status</th><th>Scenario</th><th>Run at (UTC)</th>
-      </tr></thead>
-      <tbody id="runs-body"></tbody>
-    </table>
-    <div id="runs-empty" class="empty">No runs yet &mdash; upload an invoice or run a sample.</div>
-  </div>
+  <!-- 4. Document-Processing Status Area -->
+  <section id="processing-section" style="display:none">
+    <div class="status-area">
+      <div class="section-title" id="pipeline-title">Pipeline Execution Flow</div>
+      <div class="section-sub" id="pipeline-sub">Processing through 5-stage deterministic pipeline…</div>
+      <div class="stages-grid" id="stages-grid"></div>
+    </div>
+  </section>
+
+  <!-- 5. Structured Results Table -->
+  <section id="results-section" style="display:none">
+    <div class="section-title">Structured Extraction &amp; Verification Results</div>
+    <div class="section-sub">Every entry originates strictly from the uploaded document, verified master data, or a transparent deterministic calculation.</div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Field / Entity</th>
+            <th>Value</th>
+            <th>Classification</th>
+            <th>Status / Confidence</th>
+            <th>Traceability &amp; Evidence Trail</th>
+          </tr>
+        </thead>
+        <tbody id="results-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 6. Decision and Evidence Section -->
+  <section id="decision-section" style="display:none">
+    <div class="section-title">Decision Outcome &amp; Rules Trace</div>
+    <div class="section-sub">Outcome produced by deterministic business rules matrix. AI never makes the final payment decision.</div>
+    <div id="decision-banner-container"></div>
+    <div class="table-container" style="margin-top:14px">
+      <table>
+        <thead>
+          <tr>
+            <th>Rule ID</th>
+            <th>Policy Rule</th>
+            <th>Evaluation State</th>
+            <th>Audit Detail</th>
+          </tr>
+        </thead>
+        <tbody id="rules-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Processing Run Audit Log -->
+  <section class="history-section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div>
+        <div class="section-title" style="margin:0">Processing Run Audit Log</div>
+        <div class="section-sub" style="margin:2px 0 0">Immutable SQLite execution history. Reopen any run to inspect original evidence.</div>
+      </div>
+    </div>
+    <div class="table-container" id="history-table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Run #</th><th>Timestamp</th><th>Filename</th><th>Vendor</th><th>Total</th><th>Decision</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="history-tbody"></tbody>
+      </table>
+    </div>
+    <div id="history-empty" class="empty-history" style="display:none">
+      No runs yet. Upload and process an invoice to see results here.
+    </div>
+  </section>
 </main>
 
 <script>
-const DECISION_LABELS = {
-  auto_approve: "Auto-Approve", needs_review: "Needs Review", reject: "Reject",
-};
-const STAGE_ORDER = ["extract", "validate", "match", "decide"];
-const STAGE_HINTS = {
-  extract: "waiting — PDF → structured fields",
-  validate: "waiting — completeness + arithmetic checks",
-  match: "waiting — vendor → PO → tolerance",
-  decide: "waiting — deterministic rules engine",
-};
-const SCENARIO_LABELS = {
-  happy_path: ["Happy path", ""],
-  edge_scanned: ["Edge: scanned image", "edge"],
-  edge_split_po_1: ["Edge: split PO (1/3)", "edge"],
-  edge_split_po_2: ["Edge: split PO (2/3)", "edge"],
-  edge_split_po_3: ["Edge: split PO (3/3, overrun)", "edge"],
-  edge_no_po_ref: ["Edge: no PO reference", "edge"],
-  edge_duplicate: ["Edge: duplicate resubmission", "edge"],
-};
-
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-const fmtMoney = (v) => v == null ? "—" :
-  "$" + Number(v).toLocaleString("en-US", {minimumFractionDigits: 2});
-const badge = (kind, label) =>
-  `<span class="badge ${kind}">${label ?? DECISION_LABELS[kind] ?? kind}</span>`;
+const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const fmtMoney = (v) => v == null ? "—" : "$" + Number(v).toLocaleString("en-US", {minimumFractionDigits: 2});
 
-// ======================= upload + samples =======================
+const STAGE_ORDER = ["extract", "guardrails", "validate", "match", "decide"];
+const STAGE_LABELS = {
+  extract: "1. Extract",
+  guardrails: "2. Guardrails",
+  validate: "3. Validate",
+  match: "4. Match",
+  decide: "5. Decide"
+};
 
-const dropzone = $("dropzone"), fileInput = $("file-input");
+let activeEventSource = null;
+
+// File Upload & Pre-Validation
+const dropzone = $("dropzone");
+const fileInput = $("file-input");
+
 dropzone.onclick = () => fileInput.click();
-fileInput.onchange = () => fileInput.files[0] && uploadFile(fileInput.files[0]);
-["dragover", "dragleave", "drop"].forEach(evt =>
+fileInput.onchange = () => fileInput.files[0] && handleFile(fileInput.files[0]);
+
+["dragover", "dragleave", "drop"].forEach(evt => {
   dropzone.addEventListener(evt, (e) => {
     e.preventDefault();
     dropzone.classList.toggle("drag", evt === "dragover");
-    if (evt === "drop" && e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
-  }));
+    if (evt === "drop" && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+});
 
-async function uploadFile(file) {
-  const form = new FormData();
-  form.append("file", file);
-  const resp = await fetch("/api/invoices?defer=1", {method: "POST", body: form});
-  if (!resp.ok) { alert((await resp.json()).detail ?? "upload failed"); return; }
-  const {run_id} = await resp.json();
-  fileInput.value = "";
-  watchRun(run_id, file.name, /*live=*/true);
-}
+async function handleFile(file) {
+  const errBox = $("upload-err-msg");
+  errBox.style.display = "none";
+  dropzone.classList.remove("error");
 
-async function loadSamples() {
-  const samples = await (await fetch("/api/samples")).json();
-  $("samples").innerHTML = samples.map(s => {
-    const name = s.file.split("/").pop();
-    const [label, cls] = SCENARIO_LABELS[s.scenario] ?? [s.scenario, ""];
-    return `
-    <div class="sample">
-      <div class="grow">
-        <div class="name">${esc(s.invoice_number)} &mdash; ${esc(s.vendor)}
-          <span class="chip ${cls}">${label}</span></div>
-        <div class="meta">${esc(s.scenario_note)}</div>
-      </div>
-      <div>${fmtMoney(s.total)}</div>
-      <button class="small" onclick="runSample('${name}', this)">Run</button>
-    </div>`;
-  }).join("");
-}
-
-async function runSample(name, btn) {
-  btn.disabled = true;
-  try {
-    const resp = await fetch(`/api/samples/${name}/run?defer=1`, {method: "POST"});
-    const {run_id} = await resp.json();
-    watchRun(run_id, name, /*live=*/true);
-  } finally { btn.disabled = false; }
-}
-
-// ======================= live run view =======================
-
-let eventSource = null;
-
-function watchRun(runId, fileLabel, live) {
-  if (eventSource) { eventSource.close(); eventSource = null; }
-  resetRunView(runId, fileLabel, live);
-
-  // A paced queue renders events sequentially so each stage is visible even
-  // when the backend finishes in milliseconds. The events themselves (outputs,
-  // durations) are the real execution records - pacing is presentation only.
-  const queue = [];
-  let draining = false;
-  async function drain() {
-    draining = true;
-    while (queue.length) {
-      const ev = queue.shift();
-      applyEvent(ev, runId);
-      await sleep(ev.status === "running" ? 450 : 200);
-    }
-    draining = false;
-  }
-  eventSource = new EventSource(`/api/runs/${runId}/stream`);
-  eventSource.onmessage = (msg) => {
-    const ev = JSON.parse(msg.data);
-    if (ev.stage === "pipeline") { eventSource.close(); eventSource = null; }
-    queue.push(ev);
-    if (!draining) drain();
-  };
-  eventSource.onerror = () => { if (eventSource) { eventSource.close(); eventSource = null; } };
-}
-
-function resetRunView(runId, fileLabel, live) {
-  $("run-section").hidden = false;
-  $("run-title").innerHTML = `Run #${runId} &mdash; ${esc(fileLabel)}
-    <span class="live-chip ${live ? "live" : "replay"}">${live ? "LIVE" : "REPLAY"}</span>`;
-  $("decision-banner").innerHTML = "";
-  $("stages").innerHTML = STAGE_ORDER.map(name => `
-    <div class="panel stage" id="stage-${name}">
-      <div class="stage-head" onclick="this.parentElement.classList.toggle('open')">
-        <span class="dot"></span>
-        <span class="name">${name[0].toUpperCase() + name.slice(1)}</span>
-        <span class="summary">${STAGE_HINTS[name]}</span>
-        <span class="ms"></span>
-        <span class="caret">&#9656;</span>
-      </div>
-      <div class="stage-body"><pre></pre></div>
-    </div>`).join("");
-  $("run-section").scrollIntoView({behavior: "smooth", block: "start"});
-}
-
-function applyEvent(ev, runId) {
-  if (ev.stage === "pipeline") {
-    if (ev.status === "completed") {
-      const d = ev.result.decide;
-      renderBanner(d.decision, DECISION_LABELS[d.decision], esc(d.explanation) +
-        (ev.replay ? ` <span class="muted">(reopened from stored trace)</span>` : ""));
-    } else {
-      renderBanner("failed", "Run failed", esc(ev.error ?? "unknown error"));
-      const active = document.querySelector(".stage.active");
-      if (active) { active.classList.remove("active"); active.classList.add("error"); }
-    }
-    $("run-title").querySelector(".live-chip").outerHTML = "";
-    loadRuns();
+  // Client-side pre-validation
+  if (!file.name.toLowerCase().endsWith(".pdf")) {
+    showError("Invalid file type: Only genuine PDF documents (.pdf) are accepted.");
     return;
   }
-  const el = $(`stage-${ev.stage}`);
-  if (!el) return;
-  if (ev.status === "running") {
-    el.classList.add("active");
-    el.querySelector(".summary").textContent = "running…";
-  } else if (ev.status === "completed") {
-    el.classList.remove("active");
-    el.classList.add("done");
-    el.querySelector(".summary").innerHTML = stageSummary(ev.stage, ev.output);
-    el.querySelector(".ms").textContent =
-      ev.duration_ms != null ? `${ev.duration_ms} ms` : (ev.replay ? "stored" : "");
-    el.querySelector("pre").textContent = JSON.stringify(ev.output, null, 2);
+  if (file.size === 0) {
+    showError("Invalid file: Uploaded document is empty (0 bytes).");
+    return;
+  }
+  if (file.size > 15 * 1024 * 1024) {
+    showError("File too large: Document exceeds the 15 MB upload cap.");
+    return;
+  }
+
+  // Magic bytes check (%PDF-)
+  try {
+    const slice = file.slice(0, 5);
+    const buf = await slice.arrayBuffer();
+    const str = new TextDecoder("ascii").decode(buf);
+    if (!str.startsWith("%PDF-")) {
+      showError("Corrupt or invalid PDF: Missing %PDF- signature header.");
+      return;
+    }
+  } catch(e) {
+    showError("Could not verify file integrity header.");
+    return;
+  }
+
+  $("drop-title").textContent = file.name;
+  $("drop-desc").textContent = `${(file.size / 1024).toFixed(1)} KB · Validated PDF · Processing…`;
+  $("drop-icon").textContent = "⏳";
+
+  uploadAndRun(file);
+}
+
+function showError(msg) {
+  const errBox = $("upload-err-msg");
+  errBox.textContent = msg;
+  errBox.style.display = "block";
+  dropzone.classList.add("error");
+}
+
+async function uploadAndRun(file) {
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    const res = await fetch("/api/invoices?defer=1", { method: "POST", body: form });
+    if (!res.ok) {
+      const err = await res.json();
+      showError(err.detail || "Upload rejected by server guardrails.");
+      $("drop-title").textContent = "Upload Failed";
+      $("drop-desc").textContent = "Please choose another file.";
+      $("drop-icon").textContent = "⚠️";
+      return;
+    }
+    const data = await res.json();
+    initRunStream(data.run_id, file.name);
+  } catch(e) {
+    showError("Network error: Could not reach verification service.");
   }
 }
 
-function stageSummary(stage, out) {
-  try {
-    if (stage === "extract") {
-      const n = Object.values(out.fields).filter(f => f.value !== null).length;
-      return `${out.method} extraction · confidence ${out.extraction_confidence.toFixed(2)} · ` +
-             `${n} fields · ${out.line_items.length} line items` +
-             (out.warnings.length ? ` · ${out.warnings.length} warning(s)` : "");
-    }
-    if (stage === "validate") {
-      const failed = out.checks.filter(c => !c.passed);
-      return failed.length
-        ? `${out.checks.length} checks · ${failed.length} FAILED: ${failed.map(c => c.name).join(", ")}`
-        : `${out.checks.length} checks · all passed` +
-          (out.issues.length ? ` · ${out.issues.length} issue(s) noted` : "");
-    }
-    if (stage === "match") {
-      if (!out.vendor_match.matched) return `vendor not matched — ${esc(out.vendor_match.detail)}`;
-      if (!out.po_match || !out.po_match.matched)
-        return `vendor ${esc(out.vendor_match.vendor_name)} · ${esc((out.po_match ?? {}).detail ?? "no PO")}`;
-      const a = out.amount_check;
-      let s = `${out.po_match.po_number} (${out.po_match.match_type})`;
-      if (a) {
-        s += a.billing_mode === "partial"
-          ? ` · partial billing: cumulative ${fmtMoney(a.cumulative_with_this_invoice)} of ${fmtMoney(a.po_amount)}`
-          : ` · diff ${fmtMoney(Math.abs(a.difference))} vs tolerance ${fmtMoney(a.tolerance)}`;
+function initRunStream(runId, filename) {
+  if (activeEventSource) activeEventSource.close();
+
+  $("processing-section").style.display = "block";
+  $("results-section").style.display = "none";
+  $("decision-section").style.display = "none";
+
+  renderStagesGrid();
+
+  activeEventSource = new EventSource(`/api/runs/${runId}/stream`);
+  activeEventSource.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    if (ev.stage === "pipeline") {
+      activeEventSource.close();
+      if (ev.status === "completed") {
+        renderResults(ev.result);
+        loadRuns();
+      } else {
+        $("pipeline-sub").textContent = `Failed: ${ev.error}`;
+        loadRuns();
       }
-      return s;
+      return;
     }
-    if (stage === "decide") {
-      const fired = out.rules_trace.filter(r => r.triggered).map(r => r.rule);
-      return `${badge(out.decision)} · ${fired.length ? "rule fired: " + fired.join(", ") : "no rules fired"}`;
+
+    const stageBox = $(`stage-${ev.stage}`);
+    if (stageBox) {
+      if (ev.status === "running") {
+        stageBox.className = "stage-box running";
+        $(`stage-${ev.stage}-status`).textContent = "Running…";
+      } else if (ev.status === "completed") {
+        stageBox.className = "stage-box success";
+        $(`stage-${ev.stage}-status`).textContent = `${ev.duration_ms || 0}ms · Done`;
+      }
     }
-  } catch { /* summary is cosmetic - fall through to generic label */ }
-  return "completed";
+  };
 }
 
-function renderBanner(kind, title, html) {
-  $("decision-banner").innerHTML = `
-    <div class="decision-banner ${kind}">
-      <div class="title ${kind}">${title}</div>
-      <div>${html}</div>
-    </div>`;
+function renderStagesGrid() {
+  $("stages-grid").innerHTML = STAGE_ORDER.map(s => `
+    <div id="stage-${s}" class="stage-box">
+      <div class="stage-head">${STAGE_LABELS[s]}</div>
+      <div id="stage-${s}-status" class="stage-status">Pending</div>
+    </div>
+  `).join("");
 }
 
-// ======================= dashboard =======================
+function renderResults(trace) {
+  $("results-section").style.display = "block";
+  $("decision-section").style.display = "block";
+
+  const inv = trace.invoice || {};
+  const ext = trace.extract || {};
+  const fields = ext.fields || {};
+  const val = trace.validate || {};
+  const match = trace.match || {};
+  const vm = match.vendor_match || {};
+  const pm = match.po_match || {};
+  const decide = trace.decide || {};
+
+  const rows = [
+    { field: "Invoice Number", val: inv.invoice_number || "Missing", origin: inv.invoice_number ? "EXTRACTED" : "MISSING", status: inv.invoice_number ? "Grounded" : "Unavailable", ev: fields.invoice_number?.source || "None" },
+    { field: "Vendor Name", val: inv.vendor_name || "Missing", origin: inv.vendor_name ? "EXTRACTED" : "MISSING", status: inv.vendor_name ? "Grounded" : "Unavailable", ev: fields.vendor_name?.source || "None" },
+    { field: "Invoice Date", val: inv.invoice_date || "Missing", origin: inv.invoice_date ? "EXTRACTED" : "MISSING", status: inv.invoice_date ? "Grounded" : "Unavailable", ev: fields.invoice_date?.source || "None" },
+    { field: "Purchase Order Reference", val: inv.po_ref || (pm.matched ? `${pm.po_number} (Candidate)` : "Not Referenced"), origin: inv.po_ref ? "EXTRACTED" : (pm.matched ? "MATCHED" : "MISSING"), status: inv.po_ref ? "Grounded" : (pm.matched ? "Inferred" : "None"), ev: fields.po_ref?.source || pm.detail || "None" },
+    { field: "Subtotal", val: fmtMoney(fields.subtotal?.value), origin: fields.subtotal?.value != null ? "EXTRACTED" : "MISSING", status: "Grounded", ev: fields.subtotal?.source || "None" },
+    { field: "Tax", val: fields.tax?.value != null ? fmtMoney(fields.tax.value) : "$0.00", origin: fields.tax?.value != null ? "EXTRACTED" : "CALCULATED", status: "Grounded", ev: fields.tax?.source || "Omitted on invoice, treated as 0" },
+    { field: "Total Amount", val: fmtMoney(inv.total), origin: inv.total != null ? "EXTRACTED" : "MISSING", status: "Grounded", ev: fields.total?.source || "None" },
+    { field: "Extraction Confidence", val: `${Math.round((ext.extraction_confidence || 0) * 100)}% (${ext.method})`, origin: "CALCULATED", status: (ext.extraction_confidence || 0) >= 0.7 ? "High" : "Low", ev: ext.routing || "Grounded mean" },
+    { field: "Validation Status", val: val.passed ? "All Checks Passed" : "Checks Violated", origin: "CALCULATED", status: val.passed ? "Pass" : "Fail", ev: val.checks?.map(c => c.detail).join("; ") || "Arithmetic checks" },
+    { field: "Vendor Matching", val: vm.matched ? `${vm.vendor_name} (${vm.vendor_id})` : "Unmatched", origin: vm.matched ? "MATCHED" : "MISSING", status: vm.matched ? "Verified" : "Unverified", ev: vm.detail || "Master database" },
+    { field: "PO Matching", val: pm.matched ? `PO ${pm.po_number} (${pm.match_type})` : "Unmatched", origin: pm.matched ? "MATCHED" : "MISSING", status: pm.matched ? "Verified" : "Unverified", ev: pm.detail || "PO database" },
+    { field: "Final Decision", val: decide.decision?.toUpperCase().replace("_", "-"), origin: "CALCULATED", status: "Deterministic", ev: decide.primary_reason || "Rules engine" }
+  ];
+
+  $("results-tbody").innerHTML = rows.map(r => `
+    <tr>
+      <td style="font-weight:600">${esc(r.field)}</td>
+      <td class="value">${esc(r.val)}</td>
+      <td><span class="badge-chip ${r.origin.toLowerCase()}">${esc(r.origin)}</span></td>
+      <td><span style="font-family:monospace;font-size:0.75rem">${esc(r.status)}</span></td>
+      <td class="evidence">${esc(r.ev)}</td>
+    </tr>
+  `).join("");
+
+  // Decision Banner
+  const decClass = decide.decision || "needs_review";
+  const decTitle = decide.decision === "auto_approve" ? "AUTO-APPROVE" : decide.decision === "needs_review" ? "NEEDS HUMAN REVIEW" : "REJECT";
+  $("decision-banner-container").innerHTML = `
+    <div class="decision-box ${decClass}">
+      <div class="decision-head">${decTitle}</div>
+      <div class="decision-reason">${esc(decide.primary_reason || "")}</div>
+      <div class="decision-exp">${esc(decide.explanation || "")}</div>
+    </div>
+  `;
+
+  // Rules Table
+  const rules = decide.rules_trace || [];
+  $("rules-tbody").innerHTML = rules.map(r => `
+    <tr style="${r.triggered ? 'background:rgba(245,158,11,0.06)' : ''}">
+      <td style="font-family:monospace;font-weight:700">${esc(r.rule.split('_')[0])}</td>
+      <td style="font-weight:600">${esc(r.rule)}</td>
+      <td><span class="badge-chip ${r.triggered ? 'uncertain' : 'matched'}">${r.triggered ? 'TRIGGERED' : 'PASSED'}</span></td>
+      <td class="evidence">${esc(r.detail)}</td>
+    </tr>
+  `).join("");
+}
 
 async function loadRuns() {
-  const runs = await (await fetch("/api/runs")).json();
-  $("runs-empty").style.display = runs.length ? "none" : "block";
-  $("runs-body").innerHTML = runs.map(r => `
-    <tr onclick="reopenRun(${r.id}, '${esc(r.filename)}', this)">
-      <td class="num">${r.id}</td>
-      <td>${esc(r.invoice_number ?? r.filename)}</td>
-      <td>${esc(r.vendor_name ?? "—")}</td>
-      <td class="num">${fmtMoney(r.total)}</td>
-      <td>${esc(r.po_ref ?? "—")}</td>
-      <td>${r.decision ? badge(r.decision) : "—"}</td>
-      <td>${r.status === "completed" ? "completed" : badge(r.status, r.status)}</td>
-      <td class="muted">${esc(SCENARIO_LABELS[r.scenario]?.[0] ?? r.scenario ?? "upload")}</td>
-      <td class="muted">${esc((r.created_at ?? "").replace("T", " ").replace("+00:00", ""))}</td>
-    </tr>`).join("");
+  const res = await fetch("/api/runs");
+  const runs = await res.json();
+  const tbody = $("history-tbody");
+  const empty = $("history-empty");
+
+  if (!runs || runs.length === 0) {
+    $("history-table-container").style.display = "none";
+    empty.style.display = "block";
+    return;
+  }
+
+  $("history-table-container").style.display = "block";
+  empty.style.display = "none";
+
+  tbody.innerHTML = runs.map(r => `
+    <tr style="cursor:pointer" onclick="reopenRun(${r.id}, '${esc(r.filename)}')">
+      <td style="font-family:monospace;font-weight:700">#${r.id}</td>
+      <td style="font-family:monospace;font-size:0.75rem;color:var(--muted)">${esc(r.created_at?.slice(0,19).replace('T',' '))}</td>
+      <td style="font-family:monospace">${esc(r.filename)}</td>
+      <td>${esc(r.vendor_name || '—')}</td>
+      <td style="font-family:monospace;font-weight:600">${fmtMoney(r.total)}</td>
+      <td><span class="badge-chip ${r.decision === 'auto_approve' ? 'matched' : r.decision === 'needs_review' ? 'uncertain' : 'missing'}">${esc(r.status === 'failed' ? 'FAILED' : (r.decision || r.status))}</span></td>
+      <td><button class="btn-upload" style="padding:2px 8px;font-size:0.7rem">Inspect</button></td>
+    </tr>
+  `).join("");
 }
 
-function reopenRun(id, filename, rowEl) {
-  document.querySelectorAll("tbody tr").forEach(tr => tr.classList.remove("selected"));
-  if (rowEl) rowEl.classList.add("selected");
-  watchRun(id, filename, /*live=*/false);
+function reopenRun(runId, filename) {
+  $("drop-title").textContent = filename;
+  $("drop-desc").textContent = `Loaded from SQLite Run #${runId}`;
+  $("drop-icon").textContent = "📂";
+  initRunStream(runId, filename);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-async function resetDemoState() {
-  // Full processing-state reset, not just the display table: duplicate
-  // detection and cumulative PO billing read from persisted runs, so
-  // deleting them server-side makes the next run behave like a fresh demo.
-  if (!confirm("Reset demo state?\n\nThis deletes all run history so duplicate "
-             + "detection and cumulative PO billing start completely fresh.")) return;
-  await fetch("/api/runs", {method: "DELETE"});
-  if (eventSource) { eventSource.close(); eventSource = null; }
-  $("run-section").hidden = true;          // clear the live run view too
-  loadRuns();                              // and the table
-  const note = $("reset-note");
-  note.classList.add("show");
-  setTimeout(() => note.classList.remove("show"), 4000);
+async function resetRuns() {
+  if (confirm("Reset demo state? Deletes all runs from SQLite database. Master vendor/PO data is untouched.")) {
+    await fetch("/api/runs", { method: "DELETE" });
+    $("processing-section").style.display = "none";
+    $("results-section").style.display = "none";
+    $("decision-section").style.display = "none";
+    $("drop-title").textContent = "Upload Invoice Document";
+    $("drop-desc").textContent = "Drag and drop your PDF invoice here, or click to browse.";
+    $("drop-icon").textContent = "📄";
+    loadRuns();
+  }
 }
 
-loadSamples();
 loadRuns();
 </script>
 </body>

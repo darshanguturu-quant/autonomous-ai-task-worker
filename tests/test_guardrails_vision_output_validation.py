@@ -41,6 +41,34 @@ def test_malformed_json_after_retry_degrades_to_needs_review(monkeypatch):
     assert all(f["value"] is None for f in result["fields"].values())
 
 
+def test_vision_currency_is_not_defaulted_when_model_returns_null(monkeypatch):
+    from app.pipeline.vision import FieldConfidence, LineItem, VisionExtraction, _to_result
+
+    extraction = VisionExtraction(
+        vendor_name="Example Vendor",
+        invoice_number="INV-1",
+        invoice_date="2026-10-01",
+        due_date=None,
+        po_ref=None,
+        subtotal=100.0,
+        tax=0.0,
+        tax_rate=None,
+        total=100.0,
+        currency=None,
+        line_items=[LineItem(description="Service", qty=1, unit_price=100.0, amount=100.0)],
+        field_confidence=FieldConfidence(
+            vendor_name=0.9, invoice_number=0.9, invoice_date=0.9, due_date=0,
+            po_ref=0, subtotal=0.9, tax=0.9, total=0.9, currency=0,
+        ),
+    )
+    result = _to_result(extraction, text_chars=0, num_pages=1, render={
+        "dpi": 100, "quality": 60, "kb": 10, "estimated_tokens": 1000,
+    })
+
+    assert result["fields"]["currency"]["value"] is None
+    assert result["fields"]["currency"]["confidence"] == 0.0
+
+
 def test_degraded_vision_result_routes_to_needs_review_through_the_full_pipeline(monkeypatch):
     from app.pipeline import decide as decide_mod
     from app.pipeline import guardrails as guardrails_mod

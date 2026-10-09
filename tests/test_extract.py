@@ -5,7 +5,7 @@ import json
 import pytest
 
 from app.config import FIXTURES_DIR, ROOT
-from app.pipeline.extract import choose_method, extract_invoice, read_text_layer
+from app.pipeline.extract import choose_method, extract_invoice, parse_fields, read_text_layer
 
 MANIFEST = json.loads((FIXTURES_DIR / "manifest.json").read_text())
 TEXT_INVOICES = [m for m in MANIFEST if m["template"] != "scanned"]
@@ -26,7 +26,11 @@ def test_text_extraction_matches_manifest(entry):
     assert f["total"]["value"] == entry["total"]
     if entry["tax"] > 0:
         assert f["tax"]["value"] == entry["tax"]
-    assert f["currency"]["value"] == "USD"
+    if "USD" in read_text_layer(ROOT / entry["file"])[0]:
+        assert f["currency"]["value"] == "USD"
+    else:
+        assert f["currency"]["value"] is None
+        assert "not specified" in f["currency"]["source"] or "not found" in f["currency"]["source"]
 
     # Line items: right count, and amounts sum to the subtotal.
     assert result["line_items"], "no line items parsed"
@@ -43,6 +47,33 @@ def test_no_po_invoice_reports_missing_po_not_a_failure():
     assert po["confidence"] == 0.0
     # Missing PO must not tank overall confidence - it's optional, not critical.
     assert result["extraction_confidence"] >= 0.80
+
+
+def test_amount_due_label_is_extracted_as_invoice_total():
+    fields = parse_fields("""ACME CORP
+Invoice Number: INV-2041
+Invoice Date: 2026-10-02
+Due Date: 2026-10-20
+Amount Due: $4,250.00
+""")
+
+    assert fields["total"]["value"] == 4250.0
+    assert fields["total"]["source"] == "label: amount due"
+
+
+def test_dollar_symbol_does_not_invent_an_iso_currency():
+    fields = parse_fields("Vendor LLC\nInvoice Number: INV-2001\nAmount Due: $125.00")
+
+    assert fields["currency"]["value"] is None
+    assert fields["currency"]["confidence"] == 0.0
+    assert "ISO currency code not specified" in fields["currency"]["source"]
+
+
+def test_explicit_iso_currency_code_is_extracted():
+    fields = parse_fields("Vendor LLC\nInvoice Number: INV-2002\nCurrency: USD\nTotal: USD 125.00")
+
+    assert fields["currency"]["value"] == "USD"
+    assert fields["currency"]["source"] == "explicit ISO currency code on document"
 
 
 @pytest.mark.parametrize("entry", SCANNED_INVOICES, ids=lambda e: e["invoice_number"])
